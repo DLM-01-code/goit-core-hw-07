@@ -12,25 +12,28 @@ class Name(Field):
     pass
 
 class Phone(Field):
-    def __init__(self, value):
-        digits = ''.join(filter(str.isdigit, value))
-        if len(digits) < 10:
+    def __init__(self, value: str):
+        if not value.isdigit():
+            raise ValueError("Phone number must contain only digits")
+        if len(value) != 10:
             raise ValueError("Phone number must contain 10 digits")
-        super().__init__("+" + digits)
+        super().__init__(value)
 
-class Birthday:
-    def __init__(self, value):
+class Birthday(Field):
+    def __init__(self, value: str):
         try:
-            self.value = datetime.strptime(value, "%d.%m.%Y")
+            datetime.strptime(value, "%d.%m.%Y")
         except ValueError:
             raise ValueError("Invalid date format. Use DD.MM.YYYY")
+        super().__init__(value)
 
 
-class Record(Birthday):
+class Record:
     def __init__(self, name, birthday=None):
         self.name = Name(name)
         self.phones = []
         self.birthday = Birthday(birthday) if birthday else None
+
 
     def add_phone(self, phone: str):
         self.phones.append(Phone(phone))
@@ -46,13 +49,12 @@ class Record(Birthday):
         phone_obj = self.find_phone(old_phone)
         if not phone_obj:
             raise ValueError("Phone not found")
-        self.add_phone(new_phone)
-        self.remove_phone(old_phone)
+        self.phones.remove(phone_obj)
+        self.phones.append(Phone(new_phone))
 
     def find_phone(self, phone: str):
-        digits = ''.join(filter(str.isdigit, phone))
         for p in self.phones:
-            if p.value == digits:
+            if p.value == phone:
                 return p
         return None
 
@@ -73,7 +75,7 @@ class Record(Birthday):
 
     def __str__(self):
         phones_str = "; ".join(p.value for p in self.phones) if self.phones else "No phones"
-        birthday_str = self.birthday.value.strftime("%d.%m.%Y") if self.birthday else "No birthday"
+        birthday_str = self.birthday.value if self.birthday else "No birthday"
         return f"[{self.name.value}]: [{phones_str}], birthday: [{birthday_str}]"
 
 
@@ -90,12 +92,19 @@ class AddressBook(UserDict):
         else:
             raise ValueError("Record not found")
 
-    def get_upcoming_birthdays(self):
+    def get_upcoming_birthdays(self, days=7):
+        today = datetime.now().date()
         for record in self.data.values():
-            if record.birthday:
-                days = record.examination_birthday()
-                if days <= 7:
-                    yield record.name.value, days
+            if not record.birthday:
+                continue
+            bday_date = datetime.strptime(record.birthday.value, "%d.%m.%Y").date()
+            congratulation_date =bday_date.replace(year=today.year)
+            if congratulation_date < today:
+                congratulation_date = congratulation_date.replace(year=today.year + 1)
+            delta_days = (congratulation_date - today).days
+            if 0 < delta_days <= days:
+                yield record.name.value, congratulation_date.strftime("%d.%m.%Y")
+
 
     def __str__(self):
         return "\n".join(str(record) for record in self.data.values())
@@ -149,6 +158,12 @@ def all_contacts(book: AddressBook):
     return str(book)
 
 @input_error
+def all_birthdays(book: AddressBook):
+    if not book.data:
+        return "No contacts available."
+    return str(book)
+
+
 def add_birthday(args, book: AddressBook):
     name, birthday = args
     record = book.find(name)
@@ -161,18 +176,18 @@ def add_birthday(args, book: AddressBook):
 
 @input_error
 def show_birthday(args, book: AddressBook):
-    name = args[1]
+    name = args[0]
     record = book.find(name)
     if not record or not record.birthday:
         return f"Birthday for [{name}] not found"
-    return record.birthday.value.strftime("%d.%m.%Y")
+    return record.birthday.value if record.birthday else "No birthday"
 
 @input_error
 def birthdays(args, book: AddressBook):
     args 
     result = ""
     for name, days in book.get_upcoming_birthdays():
-        result += f"[{name}]: [{days + 1}] days left\n"
+        result += f"[{name}]: {days}\n"
     return result if result else "No upcoming birthdays"
 
 
