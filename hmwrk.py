@@ -1,5 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import UserDict
+
 
 class Field:
     def __init__(self, value):
@@ -8,8 +9,10 @@ class Field:
     def __str__(self):
         return str(self.value)
 
+
 class Name(Field):
     pass
+
 
 class Phone(Field):
     def __init__(self, value: str):
@@ -18,6 +21,7 @@ class Phone(Field):
         if len(value) != 10:
             raise ValueError("Phone number must contain 10 digits")
         super().__init__(value)
+
 
 class Birthday(Field):
     def __init__(self, value: str):
@@ -34,7 +38,6 @@ class Record:
         self.phones = []
         self.birthday = Birthday(birthday) if birthday else None
 
-
     def add_phone(self, phone: str):
         self.phones.append(Phone(phone))
 
@@ -49,6 +52,7 @@ class Record:
         phone_obj = self.find_phone(old_phone)
         if not phone_obj:
             raise ValueError("Phone not found")
+
         self.phones.remove(phone_obj)
         self.phones.append(Phone(new_phone))
 
@@ -58,20 +62,8 @@ class Record:
                 return p
         return None
 
-    def add_birthday(self, birthday):
+    def add_birthday(self, birthday: str):
         self.birthday = Birthday(birthday)
-
-    def remove_birthday(self):
-        self.birthday = None
-
-    def examination_birthday(self):
-        if not self.birthday:
-            return None
-        today = datetime.now()
-        next_birthday = self.birthday.value.replace(year=today.year)
-        if next_birthday < today:
-            next_birthday = next_birthday.replace(year=today.year + 1)
-        return (next_birthday - today).days
 
     def __str__(self):
         phones_str = "; ".join(p.value for p in self.phones) if self.phones else "No phones"
@@ -84,7 +76,7 @@ class AddressBook(UserDict):
         self.data[record.name.value] = record
 
     def find(self, name: str):
-        return self.data.get(name, None)
+        return self.data.get(name)
 
     def delete(self, name: str):
         if name in self.data:
@@ -94,17 +86,33 @@ class AddressBook(UserDict):
 
     def get_upcoming_birthdays(self, days=7):
         today = datetime.now().date()
+        upcoming_birthdays = []
+
         for record in self.data.values():
             if not record.birthday:
                 continue
+
             bday_date = datetime.strptime(record.birthday.value, "%d.%m.%Y").date()
-            congratulation_date =bday_date.replace(year=today.year)
+            congratulation_date = bday_date.replace(year=today.year)
+
             if congratulation_date < today:
                 congratulation_date = congratulation_date.replace(year=today.year + 1)
-            delta_days = (congratulation_date - today).days
-            if 0 < delta_days <= days:
-                yield record.name.value, congratulation_date.strftime("%d.%m.%Y")
 
+            delta_days = (congratulation_date - today).days
+
+            if 0 <= delta_days <= days:
+                # перенос поздравления на понедельник если выходной
+                if congratulation_date.weekday() == 5:  # Saturday
+                    congratulation_date += timedelta(days=2)
+                elif congratulation_date.weekday() == 6:  # Sunday
+                    congratulation_date += timedelta(days=1)
+
+                upcoming_birthdays.append({
+                    "name": record.name.value,
+                    "birthday": congratulation_date.strftime("%d.%m.%Y")
+                })
+
+        return upcoming_birthdays
 
     def __str__(self):
         return "\n".join(str(record) for record in self.data.values())
@@ -122,34 +130,44 @@ def input_error(func):
             return "Not enough arguments."
     return inner
 
+
 @input_error
 def add(args, book: AddressBook):
     name, phone = args
     record = book.find(name)
+
     if record:
         record.add_phone(phone)
     else:
         record = Record(name)
         record.add_phone(phone)
         book.add_record(record)
+
     return f"Contact [{name}] added successfully."
+
 
 @input_error
 def change(args, book: AddressBook):
     name, old_phone, new_phone = args
     record = book.find(name)
+
     if not record:
         raise KeyError
+
     record.edit_phone(old_phone, new_phone)
     return f"Phone for [{name}] updated successfully."
+
 
 @input_error
 def phone(args, book: AddressBook):
     name = args[0]
     record = book.find(name)
+
     if not record or not record.phones:
-        return f"No phones found for {name}"
+        return f"No phones found for [{name}]"
+
     return ", ".join(p.value for p in record.phones)
+
 
 @input_error
 def all_contacts(book: AddressBook):
@@ -157,38 +175,46 @@ def all_contacts(book: AddressBook):
         return "No contacts available."
     return str(book)
 
+
 @input_error
-def all_birthdays(book: AddressBook):
-    if not book.data:
-        return "No contacts available."
-    return str(book)
-
-
 def add_birthday(args, book: AddressBook):
     name, birthday = args
     record = book.find(name)
+
     if not record:
-        record = Record(name, birthday)
+        record = Record(name)
         book.add_record(record)
-    else:
-        record.add_birthday(birthday)
+
+    record.add_birthday(birthday)
     return f"Birthday for [{name}] added successfully."
+
 
 @input_error
 def show_birthday(args, book: AddressBook):
     name = args[0]
     record = book.find(name)
-    if not record or not record.birthday:
+
+    if not record:
+        raise KeyError
+
+    if not record.birthday:
         return f"Birthday for [{name}] not found"
-    return record.birthday.value if record.birthday else "No birthday"
+
+    return record.birthday.value
+
 
 @input_error
 def birthdays(args, book: AddressBook):
-    args 
+    upcoming = book.get_upcoming_birthdays()
+
+    if not upcoming:
+        return "No upcoming birthdays"
+
     result = ""
-    for name, days in book.get_upcoming_birthdays():
-        result += f"[{name}]: {days}\n"
-    return result if result else "No upcoming birthdays"
+    for item in upcoming:
+        result += f"{item['name'] + " ""congratulate in"}: {item['birthday']}\n"
+
+    return result.strip()
 
 
 def parse_input(user_input):
@@ -196,6 +222,7 @@ def parse_input(user_input):
     if not parts:
         return "", []
     return parts[0].lower(), parts[1:]
+
 
 def main():
     book = AddressBook()
