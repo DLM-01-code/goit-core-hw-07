@@ -270,7 +270,7 @@ def main():
         elif command in ["hello", "hi"]:
             print(":3"*5 + " " "Hi! I'm AddressBook and b-day bot" " " + ":3"*5)
             print("This your helps commands: ")
-            print("1: add - add [name] [phone]\n2: change, edit - change [name] [old_phone] [new_phone]\n3: phone, show - phone [name]\n4: all, show-all - show all contacts\n5: add-birthday, new-birthday, add-b-day - add-birthday [name] [birthday]\n6: show-birthday, birthday, show-b-day - show birthday [name]\n7: birthdays, upcoming birthdays, upcoming b-days - show upcoming birthdays\n8: close, exit, bye - close the bot\n9: hello, hi - show help\n")
+            print("1: add: add [name] [phone]\n2: change, edit: change [name] [old_phone] [new_phone]\n3: phone, show: phone [name]\n4: all, show-all: show all contacts\n5: add-birthday, new-birthday, add-b-day: add-birthday [name] [birthday]\n6: show-birthday, birthday, show-b-day: show birthday [name]\n7: birthdays, upcoming birthdays, upcoming b-days: show upcoming birthdays\n8: close, exit, bye: close the bot\n9: hello, hi: show help\n")
             print("How can I help you?")
         elif command in ["add", "new"]:
             print(add(args, book))
