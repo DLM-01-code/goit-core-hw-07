@@ -17,10 +17,11 @@ class Name(Field):
 class Phone(Field):
     def __init__(self, value: str):
         if not value.isdigit():
-            raise ValueError("Phone number must contain only digits")
+            raise ValueError("Phone must contain only digits")
         if len(value) != 10:
-            raise ValueError("Phone number must contain 10 digits")
+            raise ValueError("Phone must contain exactly 10 digits")
         super().__init__(value)
+
 
 
 class Birthday(Field):
@@ -28,7 +29,7 @@ class Birthday(Field):
         try:
             datetime.strptime(value, "%d.%m.%Y")
         except ValueError:
-            raise ValueError("Invalid date format. Use DD.MM.YYYY")
+            raise ValueError("Birthday must be in DD.MM.YYYY format")
         super().__init__(value)
 
 
@@ -53,8 +54,13 @@ class Record:
         if not phone_obj:
             raise ValueError("Phone not found")
 
-        self.phones.remove(phone_obj)
-        self.phones.append(Phone(new_phone))
+        try:
+            new_phone_obj = Phone(new_phone)
+        except ValueError as e:
+            raise ValueError(f"Invalid new phone: {e}")
+
+        index = self.phones.index(phone_obj)
+        self.phones[index] = new_phone_obj
 
     def find_phone(self, phone: str):
         for p in self.phones:
@@ -124,15 +130,30 @@ def input_error(func):
             return func(*args, **kwargs)
         except ValueError as e:
             return str(e)
-        except KeyError:
-            return "Contact not found."
+        except KeyError as e:
+            name = args[0] if args else "Unknown"
+            return f"Contact [{name}] not found."
         except IndexError:
-            return "Not enough arguments."
+            if func.__name__ == "add_birthday":
+                return "Invalid input. Usage: add-birthday [name] [DD.MM.YYYY]"
+            elif func.__name__ == "add":
+                return "Invalid input. Usage: add [name] [phone]"
+            elif func.__name__ == "change":
+                return "Invalid input. Usage: change [name] [old_phone] [new_phone]"
+            elif func.__name__ == "show_birthday":
+                return "Invalid input. Usage: show-birthday [name]"
+            elif func.__name__ == "phone":
+                return "Invalid input. Usage: phone [name]"
+            else:
+                return "Not enough arguments. Please try again."
     return inner
+
 
 
 @input_error
 def add(args, book: AddressBook):
+    if len(args) != 2:
+        raise IndexError
     name, phone = args
     record = book.find(name)
 
@@ -148,6 +169,8 @@ def add(args, book: AddressBook):
 
 @input_error
 def change(args, book: AddressBook):
+    if len(args) != 3:
+        raise IndexError
     name, old_phone, new_phone = args
     record = book.find(name)
 
@@ -166,7 +189,8 @@ def phone(args, book: AddressBook):
     if not record or not record.phones:
         return f"No phones found for [{name}]"
 
-    return ", ".join(p.value for p in record.phones)
+    phones_str = ", ".join(p.value for p in record.phones)
+    return f"[{record.name.value}]: {phones_str}"
 
 
 @input_error
@@ -178,9 +202,11 @@ def all_contacts(book: AddressBook):
 
 @input_error
 def add_birthday(args, book: AddressBook):
+    if len(args) != 2:
+        raise IndexError
     name, birthday = args
     record = book.find(name)
-
+    
     if not record:
         record = Record(name)
         book.add_record(record)
@@ -191,6 +217,8 @@ def add_birthday(args, book: AddressBook):
 
 @input_error
 def show_birthday(args, book: AddressBook):
+    if len(args) != 1:
+        raise IndexError
     name = args[0]
     record = book.find(name)
 
@@ -212,7 +240,7 @@ def birthdays(args, book: AddressBook):
 
     result = ""
     for item in upcoming:
-        result += f"{item['name'] + " ""congratulate in"}: {item['birthday']}\n"
+        result += f"{item['name']} congratulate in {item['birthday']}\n"
 
     return result.strip()
 
@@ -221,7 +249,12 @@ def parse_input(user_input):
     parts = user_input.strip().split()
     if not parts:
         return "", []
-    return parts[0].lower(), parts[1:]
+    command = parts[0].lower()
+    if len(parts) >1:
+        two_word_command = f"{parts[0].lower()} {parts[1].lower()}"
+        if two_word_command in ["add-birthday", "new-birthday", "add-b-day", "show-birthday", "birthday", "show-b-day", "birthdays", "upcoming birthdays", "upcoming b-days"]:
+            return two_word_command, parts[2:]
+    return command, parts[1:]
 
 
 def main():
