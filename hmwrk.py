@@ -107,10 +107,10 @@ class AddressBook(UserDict):
             delta_days = (congratulation_date - today).days
 
             if 0 <= delta_days <= days:
-                # перенос поздравления на понедельник если выходной
-                if congratulation_date.weekday() == 5:  # Saturday
+
+                if congratulation_date.weekday() == 5: 
                     congratulation_date += timedelta(days=2)
-                elif congratulation_date.weekday() == 6:  # Sunday
+                elif congratulation_date.weekday() == 6:
                     congratulation_date += timedelta(days=1)
 
                 upcoming_birthdays.append({
